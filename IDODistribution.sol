@@ -7,23 +7,23 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 /**
  * @title IDOTokenDistribution
- * @dev A contract for managing the distribution of tokens during Initial DEX Offerings (IDOs) 
+ * @dev A contract for managing the distribution of tokens during Initial DEX Offerings (IDOs)
  * using vesting schedules. It supports creating vesting rules, allocating tokens to users,
  * and enabling users to claim tokens based on their vesting schedules.
  */
 contract IDOTokenDistribution is Ownable, ReentrancyGuard {
     // Struct representing a single vesting rule
     struct VestingRule {
-        uint256 totalTokens;    // Total tokens allocated for this vesting rule
-        uint256 intervalDays;   // Number of days between each release
-        uint256 startDate;      // Timestamp when vesting starts
-        uint256 repetitions;    // Total number of releases
+        uint256 totalTokens; // Total tokens allocated for this vesting rule
+        uint256 intervalDays; // Number of days between each release
+        uint256 startDate; // Timestamp when vesting starts
+        uint256 repetitions; // Total number of releases
     }
 
     // Struct representing a user's token allocation
     struct UserAllocation {
-        uint256 percentage;     // Percentage of the total project tokens allocated to the user
-        uint256 lastClaimed;    // Last claimed amount by the user
+        uint256 percentage; // Percentage of the total project tokens allocated to the user
+        uint256 lastClaimed; // Last claimed amount by the user
     }
 
     // Mapping of project IDs to their vesting rules
@@ -36,7 +36,8 @@ contract IDOTokenDistribution is Ownable, ReentrancyGuard {
     mapping(uint256 => uint256) public projectTotalTokens;
 
     // Mapping of project IDs and user addresses to their allocations
-    mapping(uint256 => mapping(address => UserAllocation)) public userAllocations;
+    mapping(uint256 => mapping(address => UserAllocation))
+        public userAllocations;
 
     // Mapping of project IDs to the total percentage allocated to users
     mapping(uint256 => uint256) public projectTotalAllocations;
@@ -45,13 +46,37 @@ contract IDOTokenDistribution is Ownable, ReentrancyGuard {
     IERC20 public token;
 
     // Events for logging critical actions
-    event DistributionPoolCreated(uint256 indexed projectId, address indexed poolAddress);
+    event DistributionPoolCreated(
+        uint256 indexed projectId,
+        address indexed poolAddress
+    );
     event TokensDeposited(uint256 indexed projectId, uint256 amount);
-    event VestingRuleCreated(uint256 indexed projectId, uint256 totalTokens, uint256 intervalDays, uint256 startDate, uint256 repetitions);
-    event VestingRuleUpdated(uint256 indexed projectId, uint256 index, uint256 totalTokens, uint256 intervalDays, uint256 startDate, uint256 repetitions);
+    event VestingRuleCreated(
+        uint256 indexed projectId,
+        uint256 totalTokens,
+        uint256 intervalDays,
+        uint256 startDate,
+        uint256 repetitions
+    );
+    event VestingRuleUpdated(
+        uint256 indexed projectId,
+        uint256 index,
+        uint256 totalTokens,
+        uint256 intervalDays,
+        uint256 startDate,
+        uint256 repetitions
+    );
     event VestingRuleDeleted(uint256 indexed projectId, uint256 index);
-    event UserAllocationSet(uint256 indexed projectId, address indexed user, uint256 percentage);
-    event TokensClaimed(uint256 indexed projectId, address indexed user, uint256 amount);
+    event UserAllocationSet(
+        uint256 indexed projectId,
+        address indexed user,
+        uint256 percentage
+    );
+    event TokensClaimed(
+        uint256 indexed projectId,
+        address indexed user,
+        uint256 amount
+    );
     event TokensRecovered(address indexed token, uint256 amount, address to);
     event NativeRecovered(address indexed to, uint256 amount);
 
@@ -60,7 +85,10 @@ contract IDOTokenDistribution is Ownable, ReentrancyGuard {
     error InvalidPercentage(uint256 projectId, uint256 percentage);
     error TotalAllocationExceeded(uint256 projectId, uint256 total);
     error InsufficientAllowance(uint256 required, uint256 available);
-    error ClaimExceedsEntitlement(uint256 totalEntitlement, uint256 attemptedClaim);
+    error ClaimExceedsEntitlement(
+        uint256 totalEntitlement,
+        uint256 attemptedClaim
+    );
 
     /**
      * @dev Constructor to initialize the contract.
@@ -79,7 +107,10 @@ contract IDOTokenDistribution is Ownable, ReentrancyGuard {
      * @param projectId The ID of the project.
      * @param poolAddress The address of the distribution pool.
      */
-    function createDistributionPool(uint256 projectId, address poolAddress) external onlyOwner {
+    function createDistributionPool(uint256 projectId, address poolAddress)
+        external
+        onlyOwner
+    {
         if (distributionPools[projectId] != address(0)) {
             revert PoolAlreadyExists(projectId);
         }
@@ -93,8 +124,14 @@ contract IDOTokenDistribution is Ownable, ReentrancyGuard {
      * @param projectId The ID of the project.
      * @param amount The number of tokens to deposit.
      */
-    function depositTokens(uint256 projectId, uint256 amount) external onlyOwner {
-        require(distributionPools[projectId] != address(0), "Distribution pool doesn't exist");
+    function depositTokens(uint256 projectId, uint256 amount)
+        external
+        onlyOwner
+    {
+        require(
+            distributionPools[projectId] != address(0),
+            "Distribution pool doesn't exist"
+        );
         require(amount > 0, "Amount must be greater than zero");
 
         uint256 allowance = token.allowance(msg.sender, address(this));
@@ -110,24 +147,102 @@ contract IDOTokenDistribution is Ownable, ReentrancyGuard {
     }
 
     /**
+     * @dev Creates a vesting rule for a project.
+     */
+    function createVestingRule(
+        uint256 projectId,
+        uint256 totalTokens,
+        uint256 intervalDays,
+        uint256 startDate,
+        uint256 repetitions
+    ) external onlyOwner {
+        vestingRules[projectId].push(
+            VestingRule(totalTokens, intervalDays, startDate, repetitions)
+        );
+        emit VestingRuleCreated(
+            projectId,
+            totalTokens,
+            intervalDays,
+            startDate,
+            repetitions
+        );
+    }
+
+    /**
+     * @dev Updates an existing vesting rule.
+     */
+    function updateVestingRule(
+        uint256 projectId,
+        uint256 index,
+        uint256 totalTokens,
+        uint256 intervalDays,
+        uint256 startDate,
+        uint256 repetitions
+    ) external onlyOwner {
+        require(
+            index < vestingRules[projectId].length,
+            "Vesting rule does not exist"
+        );
+        vestingRules[projectId][index] = VestingRule(
+            totalTokens,
+            intervalDays,
+            startDate,
+            repetitions
+        );
+        emit VestingRuleUpdated(
+            projectId,
+            index,
+            totalTokens,
+            intervalDays,
+            startDate,
+            repetitions
+        );
+    }
+
+    /**
+     * @dev Deletes a specific vesting rule for a project.
+     */
+    function deleteVestingRule(uint256 projectId, uint256 index)
+        external
+        onlyOwner
+    {
+        require(
+            index < vestingRules[projectId].length,
+            "Vesting rule does not exist"
+        );
+        vestingRules[projectId][index] = vestingRules[projectId][
+            vestingRules[projectId].length - 1
+        ];
+        vestingRules[projectId].pop();
+        emit VestingRuleDeleted(projectId, index);
+    }
+
+    /**
      * @dev Sets a user's token allocation for a specific project.
      * @param projectId The ID of the project.
      * @param user The address of the user.
      * @param percentage The percentage of the project's tokens allocated to the user.
      */
-    function setUserAllocation(uint256 projectId, address user, uint256 percentage) external onlyOwner {
+    function setUserAllocation(
+        uint256 projectId,
+        address user,
+        uint256 percentage
+    ) external onlyOwner {
         require(user != address(0), "Invalid user address");
         _validatePercentage(percentage);
 
         uint256 currentAllocation = userAllocations[projectId][user].percentage;
-        require(projectTotalAllocations[projectId] >= currentAllocation, "Underflow in allocation");
-        uint256 newTotalAllocation = projectTotalAllocations[projectId] - currentAllocation + percentage;
+        uint256 currentLastClaimed = userAllocations[projectId][user].lastClaimed;
+       
+        uint256 newTotalAllocation = projectTotalAllocations[projectId] -
+            currentAllocation +
+            percentage;
 
         if (newTotalAllocation > 100) {
             revert TotalAllocationExceeded(projectId, newTotalAllocation);
         }
 
-        userAllocations[projectId][user] = UserAllocation(percentage, 0);
+        userAllocations[projectId][user] = UserAllocation(percentage, currentLastClaimed);
         projectTotalAllocations[projectId] = newTotalAllocation;
 
         emit UserAllocationSet(projectId, user, percentage);
@@ -139,8 +254,15 @@ contract IDOTokenDistribution is Ownable, ReentrancyGuard {
      * @param users Array of user addresses.
      * @param percentages Array of allocation percentages corresponding to each user.
      */
-    function batchSetUserAllocation(uint256 projectId, address[] calldata users, uint256[] calldata percentages) external onlyOwner {
-        require(users.length == percentages.length, "Users and percentages length mismatch");
+    function batchSetUserAllocation(
+        uint256 projectId,
+        address[] calldata users,
+        uint256[] calldata percentages
+    ) external onlyOwner {
+        require(
+            users.length == percentages.length,
+            "Users and percentages length mismatch"
+        );
 
         uint256 totalAllocationChange = 0;
 
@@ -148,17 +270,27 @@ contract IDOTokenDistribution is Ownable, ReentrancyGuard {
             require(users[i] != address(0), "Invalid user address");
             _validatePercentage(percentages[i]);
 
-            uint256 currentAllocation = userAllocations[projectId][users[i]].percentage;
-            require(projectTotalAllocations[projectId] >= currentAllocation, "Underflow in allocation");
+            uint256 currentAllocation = userAllocations[projectId][users[i]]
+                .percentage;
+            require(
+                projectTotalAllocations[projectId] >= currentAllocation,
+                "Underflow in allocation"
+            );
             totalAllocationChange += percentages[i] - currentAllocation;
         }
 
         if (projectTotalAllocations[projectId] + totalAllocationChange > 100) {
-            revert TotalAllocationExceeded(projectId, projectTotalAllocations[projectId] + totalAllocationChange);
+            revert TotalAllocationExceeded(
+                projectId,
+                projectTotalAllocations[projectId] + totalAllocationChange
+            );
         }
 
         for (uint256 i = 0; i < users.length; i++) {
-            userAllocations[projectId][users[i]] = UserAllocation(percentages[i], 0);
+            userAllocations[projectId][users[i]] = UserAllocation(
+                percentages[i],
+                0
+            );
             emit UserAllocationSet(projectId, users[i], percentages[i]);
         }
 
@@ -172,29 +304,37 @@ contract IDOTokenDistribution is Ownable, ReentrancyGuard {
      * @param ruleIndex The index of the vesting rule.
      * @return The amount of tokens vested for the user.
      */
-    function calculateVestedAmount(uint256 projectId, address user, uint256 ruleIndex) public view returns (uint256) {
+    function calculateVestedAmount(
+        uint256 projectId,
+        address user,
+        uint256 ruleIndex
+    ) public view returns (uint256) {
         VestingRule storage rule = vestingRules[projectId][ruleIndex];
         UserAllocation storage allocation = userAllocations[projectId][user];
 
-        require(rule.intervalDays > 0, "Interval days must be greater than zero");
+        require(
+            rule.intervalDays > 0,
+            "Interval days must be greater than zero"
+        );
         require(rule.repetitions > 0, "Repetitions must be greater than zero");
 
         uint256 currentTime = block.timestamp;
-
         if (currentTime < rule.startDate) {
-            return 0;
+            return 0; // Vesting period has not started
         }
 
         uint256 elapsedTime = currentTime - rule.startDate;
-        uint256 intervalsPassed = elapsedTime / (rule.intervalDays * 1 days);
-
+        uint256 intervalsPassed = (elapsedTime / (rule.intervalDays * 1 days)) + 1; // Consider 1 interval as passed at start date
+        
+        // Ensure intervalsPassed does not exceed the allowed repetitions
         if (intervalsPassed > rule.repetitions) {
             intervalsPassed = rule.repetitions;
         }
 
-        uint256 totalUserTokens = (rule.totalTokens * allocation.percentage) / 100;
-        uint256 vestedAmount = (totalUserTokens * intervalsPassed) / rule.repetitions;
+        // Calculate vested amount based on intervals passed
+        uint256 vestedAmount = ((rule.totalTokens / 100 * allocation.percentage) * intervalsPassed) / rule.repetitions;
 
+        // Cap the vested amount to the total claimable allocation
         return vestedAmount;
     }
 
@@ -203,12 +343,18 @@ contract IDOTokenDistribution is Ownable, ReentrancyGuard {
      * @param projectId The ID of the project.
      */
     function claimTokens(uint256 projectId) external nonReentrant {
-        UserAllocation storage allocation = userAllocations[projectId][msg.sender];
+        UserAllocation storage allocation = userAllocations[projectId][
+            msg.sender
+        ];
         uint256 totalEntitlement = 0;
         uint256 totalClaimableAmount = 0;
 
         for (uint256 i = 0; i < vestingRules[projectId].length; i++) {
-            uint256 vestedAmount = calculateVestedAmount(projectId, msg.sender, i);
+            uint256 vestedAmount = calculateVestedAmount(
+                projectId,
+                msg.sender,
+                i
+            );
             totalEntitlement += vestedAmount;
             uint256 claimableAmount = vestedAmount - allocation.lastClaimed;
             totalClaimableAmount += claimableAmount;
@@ -216,7 +362,10 @@ contract IDOTokenDistribution is Ownable, ReentrancyGuard {
 
         require(totalClaimableAmount > 0, "No tokens claimable at this time");
         if (totalEntitlement < allocation.lastClaimed + totalClaimableAmount) {
-            revert ClaimExceedsEntitlement(totalEntitlement, allocation.lastClaimed + totalClaimableAmount);
+            revert ClaimExceedsEntitlement(
+                totalEntitlement,
+                allocation.lastClaimed + totalClaimableAmount
+            );
         }
 
         allocation.lastClaimed += totalClaimableAmount;
@@ -231,7 +380,11 @@ contract IDOTokenDistribution is Ownable, ReentrancyGuard {
      * @param amount The number of tokens to recover.
      * @param to The address to send the recovered tokens to.
      */
-    function recoverTokens(IERC20 _token, uint256 amount, address to) external onlyOwner {
+    function recoverTokens(
+        IERC20 _token,
+        uint256 amount,
+        address to
+    ) external onlyOwner {
         require(to != address(0), "Invalid address");
         require(_token != token, "Cannot recover main distribution token");
 
