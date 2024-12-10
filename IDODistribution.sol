@@ -107,10 +107,10 @@ contract IDOTokenDistribution is Ownable, ReentrancyGuard {
      * @param projectId The ID of the project.
      * @param poolAddress The address of the distribution pool.
      */
-    function createDistributionPool(uint256 projectId, address poolAddress)
-        external
-        onlyOwner
-    {
+    function createDistributionPool(
+        uint256 projectId,
+        address poolAddress
+    ) external onlyOwner {
         if (distributionPools[projectId] != address(0)) {
             revert PoolAlreadyExists(projectId);
         }
@@ -124,10 +124,10 @@ contract IDOTokenDistribution is Ownable, ReentrancyGuard {
      * @param projectId The ID of the project.
      * @param amount The number of tokens to deposit.
      */
-    function depositTokens(uint256 projectId, uint256 amount)
-        external
-        onlyOwner
-    {
+    function depositTokens(
+        uint256 projectId,
+        uint256 amount
+    ) external onlyOwner {
         require(
             distributionPools[projectId] != address(0),
             "Distribution pool doesn't exist"
@@ -202,10 +202,10 @@ contract IDOTokenDistribution is Ownable, ReentrancyGuard {
     /**
      * @dev Deletes a specific vesting rule for a project.
      */
-    function deleteVestingRule(uint256 projectId, uint256 index)
-        external
-        onlyOwner
-    {
+    function deleteVestingRule(
+        uint256 projectId,
+        uint256 index
+    ) external onlyOwner {
         require(
             index < vestingRules[projectId].length,
             "Vesting rule does not exist"
@@ -232,8 +232,9 @@ contract IDOTokenDistribution is Ownable, ReentrancyGuard {
         _validatePercentage(percentage);
 
         uint256 currentAllocation = userAllocations[projectId][user].percentage;
-        uint256 currentLastClaimed = userAllocations[projectId][user].lastClaimed;
-       
+        uint256 currentLastClaimed = userAllocations[projectId][user]
+            .lastClaimed;
+
         uint256 newTotalAllocation = projectTotalAllocations[projectId] -
             currentAllocation +
             percentage;
@@ -242,7 +243,10 @@ contract IDOTokenDistribution is Ownable, ReentrancyGuard {
             revert TotalAllocationExceeded(projectId, newTotalAllocation);
         }
 
-        userAllocations[projectId][user] = UserAllocation(percentage, currentLastClaimed);
+        userAllocations[projectId][user] = UserAllocation(
+            percentage,
+            currentLastClaimed
+        );
         projectTotalAllocations[projectId] = newTotalAllocation;
 
         emit UserAllocationSet(projectId, user, percentage);
@@ -324,15 +328,17 @@ contract IDOTokenDistribution is Ownable, ReentrancyGuard {
         }
 
         uint256 elapsedTime = currentTime - rule.startDate;
-        uint256 intervalsPassed = (elapsedTime / (rule.intervalDays * 1 days)) + 1; // Consider 1 interval as passed at start date
-        
+        uint256 intervalsPassed = (elapsedTime / (rule.intervalDays * 1 days)) +
+            1; // Consider 1 interval as passed at start date
+
         // Ensure intervalsPassed does not exceed the allowed repetitions
         if (intervalsPassed > rule.repetitions) {
             intervalsPassed = rule.repetitions;
         }
 
         // Calculate vested amount based on intervals passed
-        uint256 vestedAmount = ((rule.totalTokens / 100 * allocation.percentage) * intervalsPassed) / rule.repetitions;
+        uint256 vestedAmount = (((rule.totalTokens / 100) *
+            allocation.percentage) * intervalsPassed) / rule.repetitions;
 
         // Cap the vested amount to the total claimable allocation
         return vestedAmount;
